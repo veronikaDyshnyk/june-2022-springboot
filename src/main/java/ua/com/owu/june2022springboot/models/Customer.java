@@ -1,10 +1,14 @@
 package ua.com.owu.june2022springboot.models;
 
 
+import com.fasterxml.jackson.annotation.JsonView;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import ua.com.owu.june2022springboot.models.views.Views;
+
+import javax.swing.text.View;
 
 @Entity
 @AllArgsConstructor
@@ -13,11 +17,16 @@ import lombok.NoArgsConstructor;
 public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonView(Views.Admin.class)
     private int id;
-
+    @JsonView({Views.Admin.class,Views.Client.class})
     private String name;
+    @JsonView({Views.Admin.class,Views.Client.class})
     private  String surname;
+    @JsonView({Views.Admin.class,Views.Client.class})
     private String email;
+    @JsonView({Views.Admin.class,Views.Client.class})
+    private boolean isActivated = false;
 
     public Customer(String name, String surname, String email) {
         this.name = name;
