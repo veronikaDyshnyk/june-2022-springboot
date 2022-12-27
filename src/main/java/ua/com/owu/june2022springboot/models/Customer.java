@@ -27,10 +27,23 @@ public class Customer {
     private String email;
     @JsonView({Views.Admin.class,Views.Client.class})
     private boolean isActivated = false;
+    private String avatar; //path to img
 
-    public Customer(String name, String surname, String email) {
+    public Customer(String name) {
+        this.name = name;
+    }
+
+    public Customer(String name, String surname, String email, boolean isActivated, String avatar) {
         this.name = name;
         this.surname = surname;
         this.email = email;
+        this.isActivated = isActivated;
+        this.avatar = avatar;
+    }
+
+    public Customer(String name, String email, String avatar) {
+        this.name = name;
+        this.email = email;
+        this.avatar = avatar;
     }
 }

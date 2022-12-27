@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import ua.com.owu.june2022springboot.dao.CustomerDAO;
 import ua.com.owu.june2022springboot.models.Customer;
 
+import java.io.File;
 import java.util.List;
 
 @Service
@@ -16,9 +17,9 @@ public class CustomerService {
     private CustomerDAO customerDAO;
     private MailService mailService;
 
-    public void save(Customer customer) {
+    public void save(Customer customer, File file) {
         customerDAO.save(customer);
-        mailService.send(customer);
+        mailService.send(customer, file);
     }
 
     public ResponseEntity<List<Customer>> customerListByName(String name) {
