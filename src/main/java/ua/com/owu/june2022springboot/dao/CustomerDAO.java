@@ -14,4 +14,8 @@ public interface CustomerDAO extends JpaRepository<Customer, Integer> {
 //    List<Customer> findByName(String name);
 
     List<Customer> findBySurname(String surname);
+
+    @Query("select c from Customer c where c.activationToken.token=:token")
+    Customer byToken(String token);
+
 }

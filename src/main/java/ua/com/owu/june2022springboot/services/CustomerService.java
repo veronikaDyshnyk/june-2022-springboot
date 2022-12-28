@@ -5,8 +5,10 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import ua.com.owu.june2022springboot.dao.CustomerDAO;
+import ua.com.owu.june2022springboot.models.ActivationToken;
 import ua.com.owu.june2022springboot.models.Customer;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -17,6 +19,7 @@ public class CustomerService {
     private MailService mailService;
 
     public void save(Customer customer) {
+        customer.setActivationToken(new ActivationToken());
         customerDAO.save(customer);
         mailService.send(customer);
     }
@@ -39,5 +42,15 @@ public class CustomerService {
         customerDAO.save(customer);
     }
 
+    public Customer byToken(String token) {
+        return customerDAO.byToken(token);
+    }
+
+    public void activate(Customer customer) {
+        if (customer.getActivationToken().getExpire().isAfter(LocalDateTime.now())) {
+            customer.setActivated(true);
+            updateCustomer(customer);
+        }
+    }
 
 }

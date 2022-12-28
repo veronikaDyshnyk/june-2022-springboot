@@ -12,6 +12,7 @@ import ua.com.owu.june2022springboot.models.dto.CustomerDTO;
 import ua.com.owu.june2022springboot.models.views.Views;
 import ua.com.owu.june2022springboot.services.CustomerService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -84,11 +85,27 @@ public class CustomerController {
     }
 
 
-    @GetMapping("/activate/{id}")
-    public void activeteCustomer(@PathVariable int id) {
-        Customer customer = customerService.getCustomerById(id);
-        customer.setActivated(true);
-        customerService.updateCustomer(customer);
+    @GetMapping("/activate/{token}")
+    public void activateCustomer(@PathVariable String token) {
+        Customer customer = customerService.byToken(token);
+        customerService.activate(customer);
+
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }

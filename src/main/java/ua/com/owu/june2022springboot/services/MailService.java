@@ -22,7 +22,9 @@ public class MailService {
         MimeMessageHelper helper = new MimeMessageHelper(mimeMessage);
         try {
             helper.setTo(customer.getEmail());
-            helper.setText("<a href='http://localhost:8080/customers/activate/"+customer.getId()+"'>click</a>",true);
+            helper.setText("<a href='http://localhost:8080/customers/activate/"
+                    +customer.getActivationToken().getToken()+"'>click</a>",true);
+
             mimeMessage.setFrom(new InternetAddress("veronika199942@gmail.com"));
         } catch (MessagingException e) {
             throw new RuntimeException(e);
