@@ -1,25 +1,40 @@
 package ua.com.owu.june2022springboot.security;
 
+import io.jsonwebtoken.Jwts;
 import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import ua.com.owu.june2022springboot.dao.CustomerDAO;
 import ua.com.owu.june2022springboot.models.Customer;
+import ua.com.owu.june2022springboot.security.filters.CustomFilter;
 
+import javax.servlet.Filter;
+import javax.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 @Configuration
@@ -30,53 +45,91 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private CustomerDAO customerDAO;
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }//шифрування паролю
+    }
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        //get patr obj and auth прийнити логін паспорт і знайти обєкт в бд
-        auth.userDetailsService(new UserDetailsService() /*фенкціональний інтерфейс,саме UDS знаходить об в бд */ {
-            @Override
-            public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-                //цей метод займається тим щоб знаходити логін в бд, тобто він має бути унікальним
-                Customer customer = customerDAO.findByLogin(username);//ми знайшли в бд свій обєкт
-                List<SimpleGrantedAuthority> roles = Arrays.asList(new SimpleGrantedAuthority(customer.getRole()));
-                //створили обгортку, розібрали об на куски і поклали в обгортку
-                User user = new User(
-                        customer.getLogin(),
-                        customer.getPassword(),
-                        roles
-                );
-                return user;
-                //тепер спрінг візьме об user, піде в бд і шукатиме по тих пропертях
-            }
+        auth.userDetailsService(username -> {
+            System.out.println("login trig");//для того щоб глянути коли мотод спрацьвує
+            Customer customer = customerDAO.findCustomerByLogin(username);//це для того щоб знайти об в бд
+            return new User(/*це ми формуємо обєкт автентифікації*/
+                    customer.getLogin(),
+                    customer.getPassword(),
+                    Arrays.asList(new SimpleGrantedAuthority(customer.getRole())));
+
         });
+
+    }
+    //конфігурвція щоб можна було користуватися бд
+
+    @Bean
+    public CustomFilter customFilter() {
+        return new CustomFilter(customerDAO);
+    }
+
+
+    @Bean
+    CorsConfigurationSource configurationSource() {
+        //тут ми пропишемо конфігурацію з яких і ще хостів/серверів дозволено звертатись до джавішної апки,
+        //які  http методи дозволені, які додаткові хедери треба показувати на стороні клієнта
+
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:4200"));//"дозволено звертатися з таких хостів"
+        configuration.addAllowedHeader("*");
+        configuration.setAllowedMethods(Arrays.asList(
+                HttpMethod.GET.name(),
+                HttpMethod.POST.name(),
+                HttpMethod.PATCH.name(),
+                HttpMethod.PUT.name(),
+                HttpMethod.DELETE.name(),
+                HttpMethod.GET.name(),
+                HttpMethod.HEAD.name()
+        ));
+
+        configuration.addExposedHeader("Authorization");//зі сторони бека формуємо токен який треба відправити кліенту,
+        // але за замовчуванням кастомних хедерів НЕ ВИДНО тому щоб їх було видно додоєть це^
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();//створили обєкт
+        //тепер ці всі конфігурація що ми зробити треза привязати до певної урли
+        source.registerCorsConfiguration("/**", configuration);//привязали конфігурацію яку налаштували до певної урли
+        return source;
+    }
+
+
+    @Override
+    @Bean/*так цей метод стане "видимим" */
+    protected AuthenticationManager authenticationManager() throws Exception {
+        return super.authenticationManager();
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-//http request access/denied
-        http
-                .csrf().disable()//застаріла модель
-                .cors().disable()//
-                .authorizeRequests()//тут починається авторизація
-                .antMatchers(HttpMethod.GET, "/", "/open").permitAll()
-                //будемо обробляти урлу якимось методом,і вона доступна "всім", або denyAll()щоб "заборонити"
+        http.csrf().disable()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.GET, "/").permitAll()
                 .antMatchers(HttpMethod.POST, "/save").permitAll()
-                .antMatchers(HttpMethod.GET, "/secure").hasAnyRole("CLIENT", "ADMIN")
-                //перейти за посиланням може тільки той хто має "дозвіл"
-                .and()
-                //дозволяє конвертувати обєкт який приходить з antMatchers в об титу http security
-                .httpBasic()
-                .and()
-                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-        //хочемк доступитись до менеджменту сесій і сказати що в нас система без сесій
+                .antMatchers(HttpMethod.POST, "/login").permitAll()
+                .antMatchers(HttpMethod.GET, "/secure").hasAnyRole("ADMIN", "USER")
+                .and().sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and().cors().configurationSource(configurationSource())//нижче ми описуємо налаштування
+                //кастомний фільтр для фотмування токенів, в нас є по замовчуванню вбудований фільтр
+                // і  якщо ми хочемо застосувати свій то треба додати його ось так
+//                .and().addFilterBefore(
+//                        (servletRequest, servletResponse, filterChain) -> {
+//                            System.out.println("custom filter");
+//                            filterChain.doFilter(servletRequest,servletResponse);
+//                        },//таке робиться щоб наш фільтр віддавав то шо треба куда треба
+//                        UsernamePasswordAuthenticationFilter.class)
+                .and().addFilterBefore(
+                       customFilter(),
+                UsernamePasswordAuthenticationFilter.class
+                )
         ;
 
     }
+
+
+
 }
-//WSCA це абстрактний клас (не можна створити його екземпляр), цей клас дає багато різноманітних методів
-// в яких потрібно прописати конфігурфцію. і фактично спрінг буде шукати не SecurityConfig, а нащадків WSCA
-//це і є адекватний приклад наслідування
